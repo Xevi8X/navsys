@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<PropertyList>
+    <sim>
+        <description>Fixed-wing UAV</description>
+        <model>
+            <path>uav.ac</path>
+        </model>
+        <cockpit>
+            <view n="0">
+                <x-m>0.0</x-m>
+                <y-m>0.0</y-m>
+                <z-m>0.0</z-m>
+                <heading-deg>0</heading-deg>
+                <pitch-deg>-30.0</pitch-deg>
+                <roll-deg>0</roll-deg>
+            </view>
+        </cockpit>
+        <camera>
+            <name>front</name>
+            <position x="0" y="0" z="0"/>
+            <orientation roll="0" pitch="-30.0" yaw="0"/>
+            <fov>75</fov>
+            <aspect>1.77778</aspect> 
+            <clip_distance>
+                <near>0.1</near>
+                <far>1000</far>
+            </clip_distance>
+        </camera>
+    </sim>
+</PropertyList>
