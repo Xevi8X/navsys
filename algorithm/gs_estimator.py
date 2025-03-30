@@ -19,18 +19,18 @@ class GroundSpeedEstimator:
             self.timestamp = 0.0
             self.rotation = np.eye(3)
             self.yaw = 0.0
-            self.height = 0.0
+            self.position = (0.0,0.0,0.0)
             self.features = {}
 
     class KF:
         def __init__(self):
             self.Q = np.eye(3) * 2.0
-            self.R = np.eye(3) * 30.0
+            self.R = np.eye(3) * 50.0
             self.reset()
 
         def reset(self):
             self.vel = np.zeros(3)
-            self.P = self.Q
+            self.P = 1e3 * self.Q
             self.NIS = 0.0
 
         def update(self, gs, dyaw, dt):
@@ -69,10 +69,8 @@ class GroundSpeedEstimator:
         self.gs_kf = self.KF() 
         self.last_reset = 0.0
         self.last_state = self.State()
-        self.log = open("gs.csv", "w")
-        self.log.write("timestamp,gs_x,gs_y,gs_z\n")
 
-    def feed(self, timestamp, frame, attitude, height_amsl):
+    def feed(self, timestamp, frame, position, attitude):
         if timestamp - self.last_reset > self.RESET_PERIOD:
             self.last_reset = timestamp
             self.opt_flow.reset()
@@ -84,7 +82,7 @@ class GroundSpeedEstimator:
         of_res = self.opt_flow.feed(frame)
         if of_res is None:
             self.last_state.valid = False
-            return
+            return None
         
         (roll, pitch, yaw) = attitude
         
@@ -93,7 +91,7 @@ class GroundSpeedEstimator:
         state.timestamp = timestamp
         state.rotation = rot_Z(yaw) @ rot_Y(pitch) @ rot_X(roll)
         state.yaw = yaw
-        state.height = height_amsl
+        state.position = np.array(position)
 
         features_shift = []
         features_bad = []
@@ -107,7 +105,7 @@ class GroundSpeedEstimator:
             if math.fabs(math.acos(downward)) > math.radians(75):
                 features_bad.append((px_new, py_new))
 
-            loc = self.terrain.find_intersection(np.array([0.0, 0.0, -state.height]), ray)
+            loc = self.terrain.find_intersection(state.position, ray)
             feature = self.Feature(loc, downward)
             state.features[(px_new, py_new)] = feature
 
@@ -117,25 +115,26 @@ class GroundSpeedEstimator:
         self.opt_flow.remove_features(features_bad)
 
         dt = state.timestamp - self.last_state.timestamp
+        dpos = state.position - self.last_state.position
         dyaw = wrap_pi(yaw - self.last_state.yaw)
         self.last_state = state
 
         if len(features_shift) < self.MIN_FEATURES:
-            return
+            return None
 
         sum = np.zeros(3)
         confidence_sum = 0.0
         for prev_feature, feature in features_shift:
-            sum += (feature.loc - prev_feature.loc) * feature.confidence
+            sum += (feature.loc - prev_feature.loc - dpos) * feature.confidence
             confidence_sum += feature.confidence
 
         if dt <= 1e-6:
-            return
+            return None
 
         gs = -sum / confidence_sum / dt
 
         if np.isnan(gs).any():
-            return
+            return None
         
         gs_kf = self.gs_kf.update(gs, dyaw, dt)
 
@@ -144,5 +143,6 @@ class GroundSpeedEstimator:
         
         with np.printoptions(precision=3, suppress=True):      
             print("Vel: ", vel, "Heading: ", math.degrees(heading))
-            self.log.write(f"{timestamp},{gs_kf[0]},{gs_kf[1]},{gs_kf[2]}\n")
+
+        return gs_kf
 

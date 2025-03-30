@@ -1,33 +1,44 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
-gs_df = pd.read_csv('../gs.csv')
-sim_df = pd.read_csv('../sim.csv')
+test_name = 'Case 6'
+output = '6.png'
+data = pd.read_csv('./results/6a.csv')
+data_noise = pd.read_csv('./results/6b.csv')
+start_time = 5
 
-print("Ground Speed Data:")
-print(gs_df.head())
+print("CSV Headers:")
+print(data.head())
 
-print("\nSimulation Data:")
-print(sim_df.head())
+data = data[data['time'] >= start_time]
+data_noise = data_noise[data_noise['time'] >= start_time]
 
-plt.figure(figsize=(10, 6))
+end_time = min(data['time'].max(), data_noise['time'].max())
+data = data[data['time'] <= end_time]
+data_noise = data_noise[data_noise['time'] <= end_time]
 
-plt.plot(gs_df['timestamp'], gs_df['gs_x'], label='Ground Speed X')
-plt.plot(sim_df['time'], sim_df['vx'], label='Simulation VX')
+def rmse(d):
+    gs = d[[f'gs_{axis}' for axis in ['x', 'y', 'z']]].values
+    true_gs = d[[f'true_gs_{axis}' for axis in ['x', 'y', 'z']]].values
+    return ((gs - true_gs) ** 2).mean() ** 0.5
 
-plt.xlabel('Time')
-plt.ylabel('Values')
-plt.title('Ground Speed X vs Simulation VX')
-plt.legend()
+for axis in ['x', 'y', 'z']:
+    plt.figure(figsize=(10, 6))
 
-plt.figure(figsize=(10, 6))
+    plt.plot(data['time'], data[f'gs_{axis}'], label='ideal')
+    plt.plot(data_noise['time'], data_noise[f'gs_{axis}'], label='noise')
+    plt.plot(data['time'], data[f'true_gs_{axis}'], label='ground-truth', linestyle='--')
 
-plt.plot(gs_df['timestamp'], gs_df['gs_y'], label='Ground Speed Y')
-plt.plot(sim_df['time'], sim_df['vy'], label='Simulation VY')
+    plt.xlabel('Time [s]')
+    plt.ylabel('Groundspeed [m/s]')
+    plt.title(f'{test_name}: GS{axis}')
+    plt.legend()
 
-plt.xlabel('Time')
-plt.ylabel('Values')
-plt.title('Ground Speed Y vs Simulation VY')
-plt.legend()
+    plt.savefig(axis + '_' + output)
+
+
+print(f"RMSE ideal: {rmse(data)}")
+print(f"RMSE noise: {rmse(data_noise)}")
 
 plt.show()
+

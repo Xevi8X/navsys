@@ -11,10 +11,17 @@ if __name__ == '__main__':
     video_recv = VideoRecv()
     ahrs_recv = AHRSRecv()
 
+    log = open("gs.csv", "w")
+    log.write("time,gs_x,gs_y,gs_z,true_gs_x,true_gs_y,true_gs_z\n")
+
     def callback(timestamp, frame):
-        attitude, height_amsl = ahrs_recv.get()
-        gs_estimator.feed(timestamp, frame, attitude, height_amsl)
-        
+        t, pos, att, gs_true = ahrs_recv.get()
+        if t < 0.0:
+            return
+        gs = gs_estimator.feed(timestamp, frame, pos, att)
+        if gs is not None:
+            log.write(f"{t},{gs[0]},{gs[1]},{gs[2]},{gs_true[0]},{gs_true[1]},{gs_true[2]}\n")
+
     video_recv.set_callback(callback)
 
     ahrs_recv.start()
